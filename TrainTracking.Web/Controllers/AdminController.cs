@@ -156,22 +156,29 @@ namespace TrainTracking.Web.Controllers
             return View("CreateTrip", trip);
         }
 
+
         [HttpPost]
+        [ValidateAntiForgeryToken] // إضافة مهمة للحماية من الهجمات
         public async Task<IActionResult> EditTrip(Trip trip)
         {
+            // 1. التحقق من صحة البيانات (بما فيها السعر، التاريخ، إلخ)
             if (ModelState.IsValid)
             {
+                // معالجة التوقيت (كما كان في كودك الأصلي)
                 trip.DepartureTime = new DateTimeOffset(trip.DepartureTime.DateTime, _dateTimeService.Now.Offset);
                 trip.ArrivalTime = new DateTimeOffset(trip.ArrivalTime.DateTime, _dateTimeService.Now.Offset);
 
+                // منطق الإلغاء
                 if (trip.Status == TripStatus.Cancelled && trip.CancelledAt == null)
                 {
                     trip.CancelledAt = _dateTimeService.Now;
                 }
 
+                // 2. التحديث في قاعدة البيانات
+                // بما أن كائن trip يحتوي الآن على Price القادم من الفورم، سيتم تحديث السعر أيضاً
                 await _tripRepository.UpdateAsync(trip);
 
-                // Notification Logic for Delays
+                // 3. منطق التنبيهات عند التأخير (كما هو)
                 if (trip.Status == TripStatus.Delayed)
                 {
                     var bookings = await _bookingRepository.GetBookingsByTripIdAsync(trip.Id);
@@ -184,9 +191,11 @@ namespace TrainTracking.Web.Controllers
                         }
 
                         var delayMsg = $"تنبيه: رحلتك {trip.Id.ToString().Substring(0, 5)} متأخرة {trip.DelayMinutes} دقيقة. نعتذر عن الإزعاج. 🏛️🚅";
+
+                        // إرسال الرسالة
                         var smsResult = await _smsService.SendSmsAsync(phoneNumber, delayMsg);
 
-                        // Save History
+                        // حفظ في السجل
                         await _notificationRepository.CreateAsync(new Notification
                         {
                             Recipient = phoneNumber,
@@ -200,13 +209,17 @@ namespace TrainTracking.Web.Controllers
                     }
                 }
 
-                return RedirectToAction(nameof(Trips));
+                return RedirectToAction(nameof(Trips)); // العودة لصفحة الرحلات
             }
+
+            // 4. في حالة وجود خطأ (مثل إدخال سعر بالسالب)، نعيد تعبئة القوائم
             ViewBag.Trains = await _trainRepository.GetAllAsync();
             ViewBag.Stations = await _stationRepository.GetAllAsync();
-            return View("CreateTrip", trip);
-        }
 
+            // انتبه: تأكد أن اسم الفيو هنا هو اسم صفحة التعديل
+            // إذا كانت الصفحة اسمها EditTrip.cshtml استخدم هذا:
+            return View("EditTrip", trip);
+        }
         [HttpPost]
         public async Task<IActionResult> DeleteTrip(Guid id)
         {

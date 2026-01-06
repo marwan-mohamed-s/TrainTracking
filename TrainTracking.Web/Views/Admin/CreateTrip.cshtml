@@ -240,12 +240,26 @@
 
                     <hr class="section-divider">
 
+                    <div class="section-title">
+                        <i class="fas fa-route"></i>
+                        <span>سعر الرحلة</span>
+                    </div>
+                    <!-- Price of the trip -->
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="Price" class="form-label fw-bold">سعر الرحلة الأساسي</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-success fw-bold">KD</span>
+                            <input asp-for="Price" class="form-control" type="number" step="0.250" min="0" placeholder="0.000" />
+                        </div>
+                        <div class="form-text text-muted">سيتم حساب أسعار VIP والدرجة الأولى بناءً على هذا السعر.</div>
+                        <span asp-validation-for="Price" class="text-danger"></span>
+                    </div>
+
                     <!-- Route -->
                     <div class="section-title">
                         <i class="fas fa-route"></i>
                         <span>مسار الرحلة</span>
                     </div>
-                    
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">

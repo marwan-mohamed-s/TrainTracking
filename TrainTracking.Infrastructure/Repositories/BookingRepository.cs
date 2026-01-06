@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TrainTracking.Application.Interfaces;
@@ -66,8 +66,14 @@ namespace TrainTracking.Infrastructure.Repositories
 
         public async Task<List<int>> GetTakenSeatsAsync(Guid tripId)
         {
+            // نحدد وقت انتهاء صلاحية الحجز المعلق (10 دقائق مثلاً)
+            var expirationTime = DateTimeOffset.Now.AddMinutes(-1);
+
             return await _context.Bookings
-                .Where(b => b.TripId == tripId && b.Status != BookingStatus.Cancelled)
+                .Where(b => b.TripId == tripId && (
+                    b.Status == BookingStatus.Confirmed || // المقاعد المؤكدة محجوزة دائماً
+                    (b.Status == BookingStatus.PendingPayment && b.BookingDate > expirationTime) // المقاعد التي تحت الدفع ولم تنتهِ مهلتها
+                ))
                 .Select(b => b.SeatNumber)
                 .ToListAsync();
         }

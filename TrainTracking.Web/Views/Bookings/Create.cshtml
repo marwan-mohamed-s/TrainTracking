@@ -138,26 +138,39 @@
                 <div class="legend-item"><div class="dot" style="border: 2px solid #e9ecef;"></div> متاح</div>
                 <div class="legend-item"><div class="dot" style="background: #0d6efd;"></div> اختيارك</div>
                 <div class="legend-item"><div class="dot" style="background: #f8f9fa; border: 1px dashed #dee2e6;"></div> محجوز</div>
+                <div class="legend-item"><span class="badge bg-warning text-dark">VIP (2x)</span></div>
+                <div class="legend-item"><span class="badge bg-info text-dark">First Class (1.5x)</span></div>
             </div>
 
             <div class="train-container">
-                @for (int c = 0; c < 5; c++) // لنفترض وجود 5 عربات
+                @for (int c = 0; c < 10; c++)
                 {
-                    <div class="coach">
-                        <div class="coach-header">العربة رقم @(c + 1)</div>
+                    // تحديد نوع العربة ومعامل السعر
+                    string coachType = "Regular";
+                    double multiplier = 1.0;
+                    string coachClass = "";
+
+                    if (c == 0) { coachType = "VIP (Double Price)"; multiplier = 2.0; coachClass = "border-warning shadow"; }
+                    else if (c == 1) { coachType = "First Class (1.5x Price)"; multiplier = 1.5; coachClass = "border-info"; }
+
+                    <div class="coach @coachClass" data-multiplier="@multiplier">
+                        <div class="coach-header @(c == 0 ? "text-warning" : (c == 1 ? "text-info" : ""))">
+                            عربة @(c + 1) - @coachType
+                        </div>
                         <div class="seat-grid">
                             @for (int s = 1; s <= 20; s++)
                             {
                                 int seatNum = (c * 20) + s;
                                 bool isTaken = takenSeats.Contains(seatNum);
 
-                                <div class="seat @(isTaken ? "taken" : "")"
+                                <div class="seat @(isTaken ? "taken" : "") @(c == 0 ? "border-warning" : "")"
                                      data-num="@seatNum"
+                                     data-multiplier="@multiplier"
                                      onclick="selectSeat(this, @seatNum)">
                                     @seatNum
                                 </div>
 
-                                @if (s % 2 == 0 && s % 4 != 0) // إضافة الممر بعد كل مقعدين
+                                @if (s % 2 == 0 && s % 4 != 0)
                                 {
                                     <div class="aisle"><i class="fas fa-ellipsis-v"></i></div>
                                 }
@@ -173,7 +186,7 @@
                 <h5 class="fw-bold mb-4">بيانات الحجز</h5>
                 <form asp-action="Create" method="post" id="bookingForm">
                     <input type="hidden" asp-for="TripId" />
-                    <input type="hidden" asp-for="Price" id="unitPrice" />
+                    <input type="hidden" asp-for="Price" id="unitPrice" value="@Model.Price" />
                     <input type="hidden" name="selectedSeats" id="selectedSeatsInput" />
 
                     <div class="mb-3">
@@ -208,12 +221,21 @@
 
 <script>
     let selectedSeats = [];
-    const pricePerSeat = parseFloat(document.getElementById('unitPrice').value) || 0;
+
+    // الحل هنا: نستخدم parseFloat ونضمن أن القيمة قادمة من الـ input المخفي
+    const unitPriceElement = document.getElementById('unitPrice');
+    // تأكد أن basePrice ليس 0
+    const basePrice = parseFloat(unitPriceElement.value) || 0;
+
+    console.log("Base Price Detected:", basePrice);
 
     function selectSeat(el, num) {
         if (el.classList.contains('taken')) return;
 
-        const index = selectedSeats.indexOf(num);
+        // سحب الـ multiplier من الـ attribute والتأكد أنه decimal
+        const multiplier = parseFloat(el.getAttribute('data-multiplier'));
+        const index = selectedSeats.findIndex(s => s.num === num);
+
         if (index > -1) {
             selectedSeats.splice(index, 1);
             el.classList.remove('selected');
@@ -222,24 +244,25 @@
                 alert("الحد الأقصى هو 3 مقاعد");
                 return;
             }
-            selectedSeats.push(num);
+            selectedSeats.push({ num: num, mult: multiplier });
             el.classList.add('selected');
         }
         updateBookingInfo();
     }
 
     function updateBookingInfo() {
-        // تحديث النص وأرقام المقاعد
-        document.getElementById('txtSeats').innerText = selectedSeats.length > 0 ? selectedSeats.join(', ') : "--";
+        const seatNumbers = selectedSeats.map(s => s.num);
+        document.getElementById('txtSeats').innerText = seatNumbers.length > 0 ? seatNumbers.join(', ') : "--";
+        document.getElementById('selectedSeatsInput').value = seatNumbers.join(',');
 
-        // وضع القيم في الحقل المخفي للفورم
-        document.getElementById('selectedSeatsInput').value = selectedSeats.join(',');
+        let total = 0;
+        selectedSeats.forEach(s => {
+            // الحساب هنا: نضرب السعر الأساسي في المعامل لكل مقعد
+            total += (basePrice * s.mult);
+        });
 
-        // حساب السعر
-        const total = selectedSeats.length * pricePerSeat;
+        // الأهم: toFixed(3) تضمن ظهور الكسور حتى لو كانت أصفار (مثل 15.000)
         document.getElementById('txtTotal').innerText = total.toFixed(3);
-
-        // تفعيل زر الحجز
         document.getElementById('btnSubmit').disabled = selectedSeats.length === 0;
     }
 </script>

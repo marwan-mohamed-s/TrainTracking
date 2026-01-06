@@ -29,7 +29,19 @@ namespace TrainTracking.Web.Controllers
             _notificationRepository = notificationRepository;
             _dateTimeService = dateTimeService;
         }
+        private decimal CalculateSeatPrice(int seatNumber, decimal basePrice)
+        {
+            // العربة رقم 1 (المقاعد من 1 إلى 20) -> VIP
+            if (seatNumber >= 1 && seatNumber <= 20)
+                return basePrice * 2;
 
+            // العربة رقم 2 (المقاعد من 21 إلى 40) -> First Class
+            if (seatNumber >= 21 && seatNumber <= 40)
+                return basePrice * 1.5m;
+
+            // باقي العربات -> السعر العادي
+            return basePrice;
+        }
         [HttpGet]
         public async Task<IActionResult> Create(Guid? id, Guid? tripId)
         {
@@ -51,7 +63,7 @@ namespace TrainTracking.Web.Controllers
             {
                 TripId = targetId.Value,
                 Trip = trip,
-                Price = 2 
+                Price = trip.Price
             };
 
             return View(booking);
@@ -66,6 +78,7 @@ namespace TrainTracking.Web.Controllers
         {
              ModelState.Remove("Trip");
              ModelState.Remove("UserId");
+            var trip = await _tripRepository.GetTripWithStationsAsync(booking.TripId);
 
             if (ModelState.IsValid)
             {
@@ -92,7 +105,7 @@ namespace TrainTracking.Web.Controllers
                             PassengerName = booking.PassengerName,
                             PassengerPhone = booking.PassengerPhone,
                             SeatNumber = seat, // هنا نضع رقم المقعد من اللوب
-                            Price = booking.Price, // سعر المقعد الواحد
+                            Price = CalculateSeatPrice(seat, trip.Price), // سعر المقعد الواحد
                             UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Guest",
                             Status = BookingStatus.PendingPayment,
                             BookingDate = DateTimeOffset.Now
@@ -109,7 +122,6 @@ namespace TrainTracking.Web.Controllers
                 }
             }
 
-            var trip = await _tripRepository.GetTripWithStationsAsync(booking.TripId);
             if (trip != null)
             {
                 booking.Trip = trip;
@@ -122,11 +134,10 @@ namespace TrainTracking.Web.Controllers
         /// //////////////////////////////////////////////////////////////////<summary>
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> Payment(string ids) // استلام المعرفات كنص (مثل: id1,id2,id3)
+        public async Task<IActionResult> Payment(string ids)
         {
             if (string.IsNullOrEmpty(ids)) return RedirectToAction("Index", "Home");
 
-            // 1. تحويل النص إلى قائمة من الـ Guids
             var bookingIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                 .Select(Guid.Parse)
                                 .ToList();
@@ -134,31 +145,25 @@ namespace TrainTracking.Web.Controllers
             var bookings = new List<Booking>();
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            // 2. جلب كل الحجوزات من قاعدة البيانات
             foreach (var id in bookingIds)
             {
                 var booking = await _bookingRepository.GetByIdAsync(id);
 
-                // التحقق من صحة الحجز وملكيته للمستخدم
                 if (booking != null && booking.UserId == userId && booking.Status == BookingStatus.PendingPayment)
                 {
                     bookings.Add(booking);
                 }
             }
 
-            // 3. إذا لم نجد أي حجز صالح
             if (!bookings.Any()) return NotFound("لا توجد حجوزات صالحة للدفع.");
 
-            // 4. إرسال قائمة الحجوزات إلى الـ View
-            // ملاحظة: الموديل في صفحة Payment.cshtml يجب أن يكون الآن IEnumerable<Booking>
+            // نضع الـ ids في ViewBag لكي نمررها للفورم عند الدفع (ProcessPayment)
+            ViewBag.BookingIds = ids;
+            ViewBag.TotalPrice = bookings.Sum(b => b.Price);
+
             return View(bookings);
         }
 
-
-
-
-        /// <summary>
-        /// //////////////////////////////////////////////////////////////////////////////////////////////////////////
         [HttpPost]
         [Authorize]
         [ValidateAntiForgeryToken]
@@ -166,7 +171,6 @@ namespace TrainTracking.Web.Controllers
         {
             if (string.IsNullOrEmpty(ids)) return RedirectToAction("Index", "Home");
 
-            // 1. تحويل النص "id1,id2,id3" إلى قائمة Guids
             var bookingIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                 .Select(Guid.Parse)
                                 .ToList();
@@ -174,7 +178,6 @@ namespace TrainTracking.Web.Controllers
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var confirmedBookings = new List<Booking>();
 
-            // 2. التحقق من صحة الحجوزات (أمنياً وبرمجياً)
             foreach (var id in bookingIds)
             {
                 var booking = await _bookingRepository.GetByIdAsync(id);
@@ -186,40 +189,39 @@ namespace TrainTracking.Web.Controllers
 
             if (!confirmedBookings.Any()) return NotFound("لا توجد حجوزات صالحة للمعالجة.");
 
-            // 3. معالجة الدفع (Mock Payment)
+            // محاكاة عملية الدفع
             await Task.Delay(1500);
 
             if (paymentMethod == "KNET" && string.IsNullOrEmpty(pin))
             {
                 ModelState.AddModelError("pin", "يرجى إدخال الرقم السري");
-                // نرجع لصفحة الدفع مع قائمة الحجوزات لإظهار الخطأ
                 return View("Payment", confirmedBookings);
             }
 
-            // 4. تحديث حالة كل الحجوزات إلى "Confirmed"
+            // تحديث الحالة وحفظ التعديلات
             foreach (var booking in confirmedBookings)
             {
                 booking.Status = BookingStatus.Confirmed;
                 await _bookingRepository.UpdateAsync(booking);
             }
 
-            // 5. إرسال الإشعارات (نرسل رسالة واحدة تلخص العملية)
+            // تجهيز بيانات الإشعارات
             var firstBooking = confirmedBookings.First();
             var seatNumbers = string.Join(", ", confirmedBookings.Select(b => b.SeatNumber));
             var totalPrice = confirmedBookings.Sum(b => b.Price);
 
-            // البريد الإلكتروني
-            await _emailService.SendEmailAsync("user@example.com", "تأكيد حجز مقاعد القطار",
-                $"عزيزي {firstBooking.PassengerName}، تم تأكيد حجزك للمقاعد ({seatNumbers}) بنجاح. الإجمالي المدفوع: {totalPrice} KD.");
+            // إرسال البريد
+            await _emailService.SendEmailAsync(User.Identity.Name, "تأكيد حجز مقاعد القطار",
+                $"تم تأكيد حجزك للمقاعد ({seatNumbers}) بنجاح. الإجمالي المدفوع: {totalPrice} KD.");
 
-            // رسالة SMS
+            // إرسال SMS
             var phoneNumber = firstBooking.PassengerPhone;
             if (!phoneNumber.StartsWith("+") && phoneNumber.Length == 8) phoneNumber = "+965" + phoneNumber;
 
             var smsMessage = $"✅ تم دفع {totalPrice} KD بنجاح! مقاعدك: ({seatNumbers}) مؤكدة الآن. رحلة سعيدة! 🚂💳";
             var smsResult = await _smsService.SendSmsAsync(phoneNumber, smsMessage);
 
-            // حفظ سجل الإشعار لأول حجز كمرجع
+            // حفظ سجل الإشعار
             await _notificationRepository.CreateAsync(new Notification
             {
                 Recipient = phoneNumber,
@@ -227,14 +229,12 @@ namespace TrainTracking.Web.Controllers
                 Type = NotificationType.SMS,
                 BookingId = firstBooking.Id,
                 TripId = firstBooking.TripId,
-                IsSent = smsResult.Success,
-                ErrorMessage = smsResult.ErrorMessage
+                IsSent = smsResult.Success
             });
 
-            // التوجيه لصفحة النجاح (نرسل أول ID فقط لغرض العرض)
+            // التوجيه لصفحة النجاح مع كامل الـ IDs
             return RedirectToAction(nameof(Success), new { ids = ids });
         }
-
         /// <summary>
         /// ////////////////////////////////////////////////////////////////////////لسه هغير فيها
         /// </summary>

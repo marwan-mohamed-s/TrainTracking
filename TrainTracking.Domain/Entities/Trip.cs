@@ -1,4 +1,6 @@
-using System;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TrainTracking.Domain.Entities;
 
@@ -19,6 +21,11 @@ public class Trip
     public Guid FromStationId { get; set; }
     public Station? FromStation { get; set; }
     public Guid ToStationId { get; set; }
+
+    [Display(Name = "سعر الرحلة (KD)")]
+    [Column(TypeName = "decimal(18, 3)")] // 3 خانات عشرية للدينار
+    public decimal Price { get; set; }
+
     public Station? ToStation { get; set; }
     public DateTimeOffset DepartureTime { get; set; }
     public DateTimeOffset ArrivalTime { get; set; }
