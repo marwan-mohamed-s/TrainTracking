@@ -77,11 +77,15 @@ try
     builder.Services.AddScoped<IEmailService, MockEmailService>();
     builder.Services.AddScoped<ITripService, TripService>();
 
+
     // Localization Services
     builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
-    builder.Services.AddControllersWithViews()
-        .AddViewLocalization()
-        .AddDataAnnotationsLocalization();
+    builder.Services.AddControllersWithViews(options =>
+    {
+        options.ModelBinderProviders.Insert(0, new InvariantDecimalModelBinderProvider());
+    })
+    .AddViewLocalization()
+    .AddDataAnnotationsLocalization();
 
     builder.Services.Configure<RequestLocalizationOptions>(options =>
     {

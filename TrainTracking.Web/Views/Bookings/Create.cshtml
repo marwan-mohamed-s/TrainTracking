@@ -153,7 +153,7 @@
                     if (c == 0) { coachType = "VIP (Double Price)"; multiplier = 2.0; coachClass = "border-warning shadow"; }
                     else if (c == 1) { coachType = "First Class (1.5x Price)"; multiplier = 1.5; coachClass = "border-info"; }
 
-                    <div class="coach @coachClass" data-multiplier="@multiplier">
+                    <div class="coach @coachClass" data-multiplier="@multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)">
                         <div class="coach-header @(c == 0 ? "text-warning" : (c == 1 ? "text-info" : ""))">
                             عربة @(c + 1) - @coachType
                         </div>
@@ -165,8 +165,7 @@
 
                                 <div class="seat @(isTaken ? "taken" : "") @(c == 0 ? "border-warning" : "")"
                                      data-num="@seatNum"
-                                     data-multiplier="@multiplier"
-                                     onclick="selectSeat(this, @seatNum)">
+                                     data-multiplier="@multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)" onclick="selectSeat(this, @seatNum)">
                                     @seatNum
                                 </div>
 
@@ -186,8 +185,7 @@
                 <h5 class="fw-bold mb-4">بيانات الحجز</h5>
                 <form asp-action="Create" method="post" id="bookingForm">
                     <input type="hidden" asp-for="TripId" />
-                    <input type="hidden" asp-for="Price" id="unitPrice" value="@Model.Price" />
-                    <input type="hidden" name="selectedSeats" id="selectedSeatsInput" />
+                    <input type="hidden" asp-for="Price" id="unitPrice" value="@Model.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)" />                    <input type="hidden" name="selectedSeats" id="selectedSeatsInput" />
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">اسم المسافر</label>
@@ -214,6 +212,7 @@
                         تأكيد الحجز
                     </button>
                 </form>
+                <div asp-validation-summary="All" class="text-danger"></div>
             </div>
         </div>
     </div>
@@ -221,21 +220,13 @@
 
 <script>
     let selectedSeats = [];
-
-    // الحل هنا: نستخدم parseFloat ونضمن أن القيمة قادمة من الـ input المخفي
     const unitPriceElement = document.getElementById('unitPrice');
-    // تأكد أن basePrice ليس 0
     const basePrice = parseFloat(unitPriceElement.value) || 0;
-
     console.log("Base Price Detected:", basePrice);
-
     function selectSeat(el, num) {
         if (el.classList.contains('taken')) return;
-
-        // سحب الـ multiplier من الـ attribute والتأكد أنه decimal
         const multiplier = parseFloat(el.getAttribute('data-multiplier'));
         const index = selectedSeats.findIndex(s => s.num === num);
-
         if (index > -1) {
             selectedSeats.splice(index, 1);
             el.classList.remove('selected');
@@ -249,19 +240,14 @@
         }
         updateBookingInfo();
     }
-
     function updateBookingInfo() {
-        const seatNumbers = selectedSeats.map(s => s.num);
+        const seatNumbers = selectedSeats.map(s => s.num);  // هنا التصحيح
         document.getElementById('txtSeats').innerText = seatNumbers.length > 0 ? seatNumbers.join(', ') : "--";
         document.getElementById('selectedSeatsInput').value = seatNumbers.join(',');
-
         let total = 0;
         selectedSeats.forEach(s => {
-            // الحساب هنا: نضرب السعر الأساسي في المعامل لكل مقعد
             total += (basePrice * s.mult);
         });
-
-        // الأهم: toFixed(3) تضمن ظهور الكسور حتى لو كانت أصفار (مثل 15.000)
         document.getElementById('txtTotal').innerText = total.toFixed(3);
         document.getElementById('btnSubmit').disabled = selectedSeats.length === 0;
     }
