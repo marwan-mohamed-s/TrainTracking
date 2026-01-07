@@ -239,21 +239,41 @@
                     </div>
 
                     <hr class="section-divider">
-
+                    <!-- Price of the trip -->
                     <div class="section-title">
                         <i class="fa-dollar-sign"></i>
                         <span>سعر الرحلة</span>
                     </div>
-                    <!-- Price of the trip -->
+
+                    <div class="info-box">
+                        <p>
+                            <i class="fas fa-magic"></i>
+                            سيتم حساب سعر الرحلة الأساسي تلقائياً بناءً على المسافة بين المحطات (0.2 KD لكل كم، مع زيادة لكل محطة إضافية إذا لزم).
+                        </p>
+                    </div>
+
                     <div class="col-md-6 mb-3">
                         <label asp-for="Price" class="form-label fw-bold">سعر الرحلة الأساسي</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light text-success fw-bold">KD</span>
-                            <input asp-for="Price" class="form-control" type="number" step="0.250" min="0" placeholder="0.000" />
+                            <input asp-for="Price"
+                                   class="form-control"
+                                   type="number"
+                                   step="0.001"
+                                   min="0"
+                                   placeholder="0.000"
+                                   id="tripPrice"
+                                   readonly />
                         </div>
                         <div class="form-text text-muted">سيتم حساب أسعار VIP والدرجة الأولى بناءً على هذا السعر.</div>
                         <span asp-validation-for="Price" class="text-danger"></span>
+                        <div id="priceFeedback" class="calc-feedback" style="display: none;">
+                            <i class="fas fa-check-circle"></i>
+                            <span id="priceMessage"></span>
+                        </div>
                     </div>
+
+                    <hr class="section-divider">
 
                     <!-- Route -->
                     <div class="section-title">
@@ -373,20 +393,19 @@
 
     <script>
         $(document).ready(function() {
-
-            function calculateArrivalTime() {
+            function calculateArrivalAndPrice() {
                 const fromId = $('#fromStation').val();
                 const toId = $('#toStation').val();
                 const departure = $('#departureTime').val();
-
-                console.log('Calculating...', { fromId, toId, departure });
-
+                console.log('Calculating time and price...', { fromId, toId, departure });
                 if (fromId && toId && departure && fromId !== toId) {
                     $('#arrivalTime').addClass('calculating');
+                    $('#tripPrice').addClass('calculating');
                     $('#calcFeedback').hide();
-                    
+                    $('#priceFeedback').hide();
+
                     $.ajax({
-                        url: '/Admin/GetCalculatedArrivalTime',
+                        url: '/Admin/GetCalculatedArrivalAndPrice',  // action جديد هتضيفه
                         type: 'GET',
                         data: {
                             fromStationId: fromId,
@@ -396,24 +415,31 @@
                         success: function(data) {
                             console.log('Success:', data);
                             $('#arrivalTime').removeClass('calculating');
-                            
+                            $('#tripPrice').removeClass('calculating');
+
                             if (data.success) {
+                                // للوقت
                                 $('#arrivalTime').val(data.arrivalTime);
                                 $('#calcMessage').text('تم الحساب تلقائياً - الوصول المتوقع: ' + data.displayTime);
                                 $('#calcFeedback').fadeIn();
+
+                                // للسعر
+                                $('#tripPrice').val(data.price.toFixed(3));  // دقة 3 منازل عشرية
+                                $('#priceMessage').text('تم الحساب تلقائياً - السعر: ' + data.price.toFixed(3) + ' KD');
+                                $('#priceFeedback').fadeIn();
                             }
                         },
                         error: function(xhr, status, error) {
                             console.error('Error:', error);
                             $('#arrivalTime').removeClass('calculating');
+                            $('#tripPrice').removeClass('calculating');
                         }
                     });
                 }
             }
-
             $('#fromStation, #toStation, #departureTime').on('change', function() {
                 console.log('Field changed:', this.id);
-                calculateArrivalTime();
+                calculateArrivalAndPrice();
             });
         });
     </script>

@@ -80,13 +80,14 @@ try
 
     // Localization Services
     builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+    // Custom Model Binder for Invariant Decimal Parsing
     builder.Services.AddControllersWithViews(options =>
     {
         options.ModelBinderProviders.Insert(0, new InvariantDecimalModelBinderProvider());
     })
     .AddViewLocalization()
     .AddDataAnnotationsLocalization();
-
+    // Configure Supported Cultures
     builder.Services.Configure<RequestLocalizationOptions>(options =>
     {
         var supportedCultures = new[] { "ar-KW", "en-US" };

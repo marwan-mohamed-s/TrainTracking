@@ -141,6 +141,69 @@ namespace TrainTracking.Web.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetCalculatedArrivalAndPrice(Guid fromStationId, Guid toStationId, DateTime departureTime)
+        {
+            try
+            {
+                // حساب الوقت (زي الحالي)
+                var departureOffset = new DateTimeOffset(departureTime, _dateTimeService.Now.Offset);
+                var arrivalTime = await _tripService.CalculateArrivalTimeAsync(fromStationId, toStationId, departureOffset);
+
+                // حساب السعر الجديد
+                var fromStation = await _stationRepository.GetByIdAsync(fromStationId);
+                var toStation = await _stationRepository.GetByIdAsync(toStationId);
+                if (fromStation == null || toStation == null)
+                {
+                    return Json(new { success = false, message = "محطة غير موجودة" });
+                }
+
+                // حساب المسافة بين from و to (استخدم Haversine زي في StationsController)
+                var distanceKm = CalculateDistance(fromStation.Latitude, fromStation.Longitude, toStation.Latitude, toStation.Longitude);
+
+                // السعر الأساسي: مسافة * rate (مثل 0.5 KD/km) - عدل الـ rate حسب احتياجك
+                const decimal ratePerKm = 0.2m;  // مثال: 0.5 KD لكل كم
+                decimal calculatedPrice = (decimal)distanceKm * ratePerKm;
+
+                // لو في محطات وسيطة (افترض مفيش دلوقتي، بس لو عايز تضيف: اجمع مسافات بين كل محطة)
+                // مثال: calculatedPrice += numIntermediateStations * additionalPerStation;
+
+                // rounding لـ 3 منازل عشرية
+                calculatedPrice = Math.Round(calculatedPrice, 3);
+
+                return Json(new
+                {
+                    success = true,
+                    arrivalTime = arrivalTime.ToString("yyyy-MM-ddTHH:mm"),
+                    displayTime = arrivalTime.ToString("HH:mm"),
+                    price = calculatedPrice  // رجع decimal كـ number
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        // أضف الـ CalculateDistance (انسخه من StationsController لو مش موجود هنا)
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            var R = 6371; // Radius of the earth in km
+            var dLat = ToRadians(lat2 - lat1);
+            var dLon = ToRadians(lon2 - lon1);
+            var a =
+                Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            var d = R * c; // Distance in km
+            return d;
+        }
+
+        private double ToRadians(double deg)
+        {
+            return deg * (Math.PI / 180);
+        }
         private async Task PrepareTripDropdowns()
         {
             ViewBag.Trains = await _trainRepository.GetAllAsync();
