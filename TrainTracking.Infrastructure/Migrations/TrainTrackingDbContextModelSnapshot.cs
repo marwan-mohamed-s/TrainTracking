@@ -247,7 +247,7 @@ namespace TrainTracking.Infrastructure.Migrations
 
                     b.HasIndex("TripId");
 
-                    b.ToTable("Bookings", (string)null);
+                    b.ToTable("Bookings");
                 });
 
             modelBuilder.Entity("TrainTracking.Domain.Entities.Notification", b =>
@@ -289,7 +289,7 @@ namespace TrainTracking.Infrastructure.Migrations
 
                     b.HasIndex("TripId");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("TrainTracking.Domain.Entities.PointRedemption", b =>
@@ -315,7 +315,7 @@ namespace TrainTracking.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PointRedemptions", (string)null);
+                    b.ToTable("PointRedemptions");
                 });
 
             modelBuilder.Entity("TrainTracking.Domain.Entities.Station", b =>
@@ -336,7 +336,7 @@ namespace TrainTracking.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Stations", (string)null);
+                    b.ToTable("Stations");
                 });
 
             modelBuilder.Entity("TrainTracking.Domain.Entities.Train", b =>
@@ -358,7 +358,7 @@ namespace TrainTracking.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Trains", (string)null);
+                    b.ToTable("Trains");
                 });
 
             modelBuilder.Entity("TrainTracking.Domain.Entities.Trip", b =>
@@ -407,7 +407,7 @@ namespace TrainTracking.Infrastructure.Migrations
 
                     b.HasIndex("TrainId");
 
-                    b.ToTable("Trips", (string)null);
+                    b.ToTable("Trips");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

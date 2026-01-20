@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TrainTracking.Infrastructure.Persistence;
 using TrainTracking.Application.Interfaces;
 using TrainTracking.Infrastructure.Repositories;
@@ -58,9 +58,15 @@ try
     });
 
     // Configure SQLite (Standard Context - Pooling can cause issues with Migrations/SQLite)
-    var dbPath = Environment.GetEnvironmentVariable("DATABASE_PATH") ?? "kuwgo_production_v1.db";
+    var dbPath = "test_new.db"; // اسم جديد للقاعدة
     builder.Services.AddDbContext<TrainTrackingDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
+    //local db
+    //builder.Services.AddDbContext<TrainTrackingDbContext>(options =>
+    //options.UseSqlServer(
+    //    builder.Configuration.GetConnectionString("DefaultConnection")
+    //));
+
 
     builder.Services.AddScoped<ITrainRepository, TrainRepository>();
     builder.Services.AddScoped<ITripRepository, TripRepository>();
