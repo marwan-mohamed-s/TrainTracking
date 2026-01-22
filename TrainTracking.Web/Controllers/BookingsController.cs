@@ -57,6 +57,8 @@ namespace TrainTracking.Web.Controllers
                 return NotFound("لم يتم العثور على الرحلة المطلوبة.");
             }
 
+            //for train seats
+            ViewBag.totalSeats = trip.Train?.TotalSeats ?? 0;
             ViewBag.TakenSeats = await _bookingRepository.GetTakenSeatsAsync(targetId.Value);
 
             var booking = new Booking
@@ -205,8 +207,33 @@ namespace TrainTracking.Web.Controllers
                 await _bookingRepository.UpdateAsync(booking);
             }
 
+
+
             // تجهيز بيانات الإشعارات
             var firstBooking = confirmedBookings.First();
+            // ✅ بعد تأكيد الحجوزات نشوف هل الكراسي خلصت؟
+            var trip = await _tripRepository.GetByIdAsync(firstBooking.TripId);
+
+            if (trip == null || trip.Train == null)
+            {
+                return NotFound("بيانات الرحلة أو القطار غير متوفرة.");
+            }
+
+            // عدد الكراسي المحجوزة فعلياً
+            var bookedSeatsCount = await _bookingRepository
+                .GetConfirmedSeatsCountAsync(trip.Id);
+
+            // لو عدد المحجوز == إجمالي الكراسي
+            if (bookedSeatsCount >= trip.Train.TotalSeats)
+            {
+                trip.Status = TripStatus.Completed;
+                await _tripRepository.UpdateAsync(trip);
+            }
+
+
+
+
+
             var seatNumbers = string.Join(", ", confirmedBookings.Select(b => b.SeatNumber));
             var totalPrice = confirmedBookings.Sum(b => b.Price);
 

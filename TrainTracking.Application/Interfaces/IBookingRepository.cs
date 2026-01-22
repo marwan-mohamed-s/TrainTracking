@@ -7,6 +7,7 @@ namespace TrainTracking.Application.Interfaces
     public interface IBookingRepository
     {
         Task CreateAsync(Booking booking);
+        Task<int> GetConfirmedSeatsCountAsync(Guid tripId);
         Task<bool> IsSeatTakenAsync(Guid tripId, int seatNumber);
         Task<Booking?> GetByIdAsync(Guid id);
         Task<List<Booking>> GetBookingsByUserIdAsync(string userId);

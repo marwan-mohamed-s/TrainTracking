@@ -58,7 +58,7 @@ try
     });
 
     // Configure SQLite (Standard Context - Pooling can cause issues with Migrations/SQLite)
-    var dbPath = "test_new.db"; // اسم جديد للقاعدة
+    var dbPath = "new.db"; // اسم جديد للقاعدة
     builder.Services.AddDbContext<TrainTrackingDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
     //local db
@@ -82,6 +82,7 @@ try
     builder.Services.AddScoped<TicketGenerator>();
     builder.Services.AddScoped<IEmailService, MockEmailService>();
     builder.Services.AddScoped<ITripService, TripService>();
+    builder.Services.AddHostedService<TripStatusBackgroundService>();
 
 
     // Localization Services

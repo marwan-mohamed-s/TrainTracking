@@ -131,6 +131,13 @@
     }
 </style>
 
+@if (Model.Trip.Status == TripStatus.Completed)
+{
+    <div class="alert alert-danger text-center">
+        🚫 هذه الرحلة مكتملة العدد
+    </div>
+}
+
 <div class="container py-5">
     <div class="row">
         <div class="col-md-8">
@@ -143,14 +150,14 @@
             </div>
 
             <div class="train-container">
-                @for (int c = 0; c < 10; c++)
+                @for (int c = 0; c < ViewBag.totalSeats /20 ; c++)
                 {
                     // تحديد نوع العربة ومعامل السعر
                     string coachType = "Regular";
                     double multiplier = 1.0;
                     string coachClass = "";
 
-                    if (c == 0) { coachType = "VIP (Double Price)"; multiplier = 2.0; coachClass = "border-warning shadow"; }
+                    if (c == 0 ) { coachType = "VIP (Double Price)"; multiplier = 2.0; coachClass = "border-warning shadow"; }
                     else if (c == 1) { coachType = "First Class (1.5x Price)"; multiplier = 1.5; coachClass = "border-info"; }
 
                     <div class="coach @coachClass" data-multiplier="@multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)">
@@ -158,14 +165,17 @@
                             عربة @(c + 1) - @coachType
                         </div>
                         <div class="seat-grid">
+
+							@* s => number of seats *@
                             @for (int s = 1; s <= 20; s++)
                             {
                                 int seatNum = (c * 20) + s;
                                 bool isTaken = takenSeats.Contains(seatNum);
 
-                                <div class="seat @(isTaken ? "taken" : "") @(c == 0 ? "border-warning" : "")"
+                                <div class="seat @(isTaken ? "taken" : "") @(c == 0 ? "border-warning" : (c == 1 ? "border-info" : ""))"
                                      data-num="@seatNum"
-                                     data-multiplier="@multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)" onclick="selectSeat(this, @seatNum)">
+                                     data-multiplier="@multiplier.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                     onclick="selectSeat(this, @seatNum)">
                                     @seatNum
                                 </div>
 
@@ -182,18 +192,18 @@
 
         <div class="col-md-4">
             <div class="card shadow-sm border-0 p-4 sticky-top" style="top: 20px; border-radius: 15px;">
-                <h5 class="fw-bold mb-4">بيانات الحجز</h5>
+                <h5 class="fw-bold mb-4 text-secondary">بيانات الحجز</h5>
                 <form asp-action="Create" method="post" id="bookingForm">
                     <input type="hidden" asp-for="TripId" />
                     <input type="hidden" asp-for="Price" id="unitPrice" value="@Model.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)" />                    <input type="hidden" name="selectedSeats" id="selectedSeatsInput" />
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">اسم المسافر</label>
+                        <label class="form-label small fw-bold" style="color:#6c757d;">اسم المسافر</label>
                         <input asp-for="PassengerName" class="form-control" placeholder="الاسم الكامل" required />
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">رقم الهاتف</label>
+                        <label class="form-label small fw-bold" style="color:#6c757d;">رقم الهاتف</label>
                         <input asp-for="PassengerPhone" class="form-control" placeholder="00000000" required />
                     </div>
 

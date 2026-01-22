@@ -79,6 +79,32 @@ public class TripRepository : ITripRepository
         return await _context.Trips.FindAsync(id);
     }
 
+
+    public async Task CompleteFinishedTripsAsync()
+    {
+        var now = _dateTimeService.Now;
+
+        var tripsToComplete = await _context.Trips
+            .Where(t =>
+                t.Status != TripStatus.Completed &&
+                t.Status != TripStatus.Cancelled &&
+                t.ArrivalTime <= now
+            )
+            .ToListAsync();
+
+        if (!tripsToComplete.Any())
+            return;
+
+        foreach (var trip in tripsToComplete)
+        {
+            trip.Status = TripStatus.Completed;
+        }
+        Console.WriteLine($"[TripService] Completed trips check at {_dateTimeService.Now}");
+        await _context.SaveChangesAsync();
+    }
+
+
+
     public async Task AddAsync(Trip trip)
     {
         _context.Trips.Add(trip);

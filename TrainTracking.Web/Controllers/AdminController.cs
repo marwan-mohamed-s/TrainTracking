@@ -106,6 +106,16 @@ namespace TrainTracking.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateTrip(Trip trip)
         {
+            //لاكتشاف الخطا
+            //if (!ModelState.IsValid)
+            //{
+            //    foreach (var error in ModelState.Values.SelectMany(v => v.Errors))
+            //    {
+            //        Console.WriteLine(error.ErrorMessage);
+            //    }
+            //}
+
+
             if (ModelState.IsValid)
             {
                 // Adjust times to Kuwait (+3) using DateTimeService

@@ -98,7 +98,13 @@
                                                     <i class="fas fa-subway fs-5"></i>
                                                 </div>
                                                 <div>
-                                                    <a asp-action="Details" asp-route-id="@trip.Id" class="fw-bold text-dark fs-6 text-decoration-none" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">@(trip.TrainNumber ?? "N/A")</a>
+                                                    <a asp-action="Details"
+                                                       asp-route-id="@trip.Id"
+                                                       class="fw-bold fs-6 text-decoration-none"
+                                                       style="color:#212529; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                                                        @(trip.TrainNumber ?? "N/A")
+                                                    </a>
+
                                                     <div class="small text-muted">@(trip.TrainType ?? "Unknown")</div>
                                                 </div>
                                             </div>
@@ -117,7 +123,7 @@
                                         </td>
                                         <td class="px-4 py-3">
                                             <div class="d-flex flex-column">
-                                                <span class="fw-bold text-dark fs-5" style="letter-spacing: 0.5px;">
+                                                <span class="fw-bold fs-5 text-secondary" style="letter-spacing: 0.5px;">
                                                     @trip.DepartureTime.ToString("HH:mm")
                                                 </span>
                                                 <span class="small text-muted">

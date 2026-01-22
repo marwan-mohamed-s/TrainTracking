@@ -22,6 +22,8 @@ namespace TrainTracking.Infrastructure.Services
             _logger = logger;
         }
 
+
+        // Deletes trips that have arrived more than 1 hour ago 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Trip Cleanup Service is starting.");

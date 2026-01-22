@@ -22,6 +22,12 @@ namespace TrainTracking.Infrastructure.Repositories
             await _context.Bookings.AddAsync(booking);
             await _context.SaveChangesAsync();
         }
+        public async Task<int> GetConfirmedSeatsCountAsync(Guid tripId)
+        {
+            return await _context.Bookings
+                .CountAsync(b => b.TripId == tripId
+                              && b.Status == BookingStatus.Confirmed);
+        }
 
         public async Task<bool> IsSeatTakenAsync(Guid tripId, int seatNumber)
         {
