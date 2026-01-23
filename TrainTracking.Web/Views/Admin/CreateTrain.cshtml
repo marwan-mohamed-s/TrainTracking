@@ -43,6 +43,11 @@
                             <input asp-for="TotalSeats" type="number" class="form-control rounded-3 border-light shadow-sm bg-light" min="1" required />
                             <span asp-validation-for="TotalSeats" class="text-danger small"></span>
                         </div>
+                        <div class="mb-4">
+                            <label asp-for="speed" class="form-label fw-bold">سرعة القطار</label>
+                            <input asp-for="speed" type="number" class="form-control rounded-3 border-light shadow-sm bg-light" min="1" required />
+                            <span asp-validation-for="speed" class="text-danger small"></span>
+                        </div>
 
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-success rounded-pill py-2 fw-bold shadow-sm">

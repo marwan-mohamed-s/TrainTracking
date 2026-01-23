@@ -9,17 +9,21 @@ namespace TrainTracking.Application.Services
     public class TripService : ITripService
     {
         private readonly IStationRepository _stationRepository;
-        private const double TrainSpeedKmh = 300.0;
+        private readonly ITrainRepository _trainRepository;
+        
 
-        public TripService(IStationRepository stationRepository)
+        public TripService(IStationRepository stationRepository, ITrainRepository trainRepository)
         {
             _stationRepository = stationRepository;
+            _trainRepository = trainRepository;
         }
 
         public async Task<DateTimeOffset> CalculateArrivalTimeAsync(Guid fromStationId, Guid toStationId, DateTimeOffset departureTime)
         {
             var fromStation = await _stationRepository.GetByIdAsync(fromStationId);
             var toStation = await _stationRepository.GetByIdAsync(toStationId);
+            var train = (await _trainRepository.GetAllAsync()).FirstOrDefault();
+            int TrainSpeedKmh = train!.speed;
 
             if (fromStation == null || toStation == null)
                 return departureTime.AddHours(1); // Fallback
