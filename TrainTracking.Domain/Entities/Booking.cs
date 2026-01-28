@@ -18,5 +18,11 @@ namespace TrainTracking.Domain.Entities
         // Foreign Key
         public Guid TripId { get; set; }
         public Trip Trip { get; set; } = null!;
+
+        public Guid FromStationId { get; set; }
+        public Station FromStation { get; set; } = null!;
+
+        public Guid ToStationId { get; set; }
+        public Station ToStation { get; set; } = null!;
     }
 }

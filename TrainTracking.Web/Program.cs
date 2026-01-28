@@ -83,6 +83,8 @@ try
     builder.Services.AddScoped<IEmailService, MockEmailService>();
     builder.Services.AddScoped<ITripService, TripService>();
     builder.Services.AddHostedService<TripStatusBackgroundService>();
+    builder.Services.AddScoped<IVirtualSegmentService, VirtualSegmentService>();
+
 
 
     // Localization Services

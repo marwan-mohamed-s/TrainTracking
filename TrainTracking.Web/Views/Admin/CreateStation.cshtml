@@ -40,6 +40,12 @@
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label asp-for="Order" class="form-label fw-bold">ترتيب المحطة (Order)</label>
+                            <input asp-for="Order" type="number" class="form-control rounded-3 border-light shadow-sm bg-light" placeholder="1, 2, 3..." required />
+                            <span asp-validation-for="Order" class="text-danger small"></span>
+                        </div>
+
                         <div class="d-grid gap-2 mt-2">
                             <button type="submit" class="btn btn-warning rounded-pill py-2 fw-bold shadow-sm">
                                 <i class="fas fa-save me-2"></i> @(isEdit ? "حفظ التغييرات" : "إضافة المحطة")
@@ -54,5 +60,7 @@
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }

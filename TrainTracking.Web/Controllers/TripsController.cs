@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using TrainTracking.Application.Interfaces;
 using TrainTracking.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +15,7 @@ namespace TrainTracking.Web.Controllers
         private readonly TrainTrackingDbContext _context;
         private readonly IMediator _mediator;
 
-        public TripsController(ITripRepository tripRepository, IStationRepository stationRepository, 
+        public TripsController(ITripRepository tripRepository, IStationRepository stationRepository,
             TrainTrackingDbContext context, IMediator mediator)
         {
             _tripRepository = tripRepository;
@@ -26,6 +26,11 @@ namespace TrainTracking.Web.Controllers
 
         public async Task<IActionResult> Index(Guid? fromStationId, Guid? toStationId, DateTime? date, string? searchStation)
         {
+            if (fromStationId.HasValue && toStationId.HasValue && fromStationId == toStationId)
+            {
+                TempData["ErrorMessage"] = " غير مسموح ان يكون محطه الوصول و محطه الاقلاع لهما نفس القيمة !";
+                return RedirectToAction(nameof(Index), new { date = date });
+            }
             var stations = await _stationRepository.GetAllAsync();
 
             // Handle "Book from here" feature (Nearest Station)
@@ -38,13 +43,14 @@ namespace TrainTracking.Web.Controllers
                 }
             }
 
-            var query = new GetUpcomingTripsQuery { 
-                FromStationId = fromStationId, 
-                ToStationId = toStationId, 
-                Date = date 
+            var query = new GetUpcomingTripsQuery
+            {
+                FromStationId = fromStationId,
+                ToStationId = toStationId,
+                Date = date
             };
             var trips = await _mediator.Send(query);
-            
+
             ViewBag.Stations = stations;
             ViewBag.FromStationId = fromStationId;
             ViewBag.ToStationId = toStationId;
@@ -70,7 +76,7 @@ namespace TrainTracking.Web.Controllers
                 var kuwaitOffset = TimeSpan.FromHours(3);
                 var now = DateTimeOffset.UtcNow.ToOffset(kuwaitOffset);
                 var todayStart = new DateTimeOffset(now.Date, kuwaitOffset);
-                
+
                 // Get trips that haven't arrived yet
                 var liveTrips = _context.Trips
                     .Include(t => t.Train)
@@ -79,9 +85,9 @@ namespace TrainTracking.Web.Controllers
                     .Where(t => t.ArrivalTime >= now)
                     .OrderBy(t => t.DepartureTime)
                     .ToList();
-                
+
                 ViewBag.DebugInfo = $"Current (Kuwait): {now:yyyy-MM-dd HH:mm:ss} | Trips from today: {liveTrips.Count}";
-                
+
                 return View(liveTrips);
             }
             catch (Exception ex)

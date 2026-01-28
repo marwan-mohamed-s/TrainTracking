@@ -4,16 +4,16 @@
 
     var statusClass = Model.Status switch
     {
-        TrainTracking.Domain.Entities.TripStatus.OnTime => "success",
-        TrainTracking.Domain.Entities.TripStatus.Delayed => "danger",
-        TrainTracking.Domain.Entities.TripStatus.Scheduled => "primary",
+        TrainTracking.Domain.Enums.TripStatus.OnTime => "success",
+        TrainTracking.Domain.Enums.TripStatus.Delayed => "danger",
+        TrainTracking.Domain.Enums.TripStatus.Scheduled => "primary",
         _ => "warning"
     };
     var statusText = Model.Status switch
     {
-        TrainTracking.Domain.Entities.TripStatus.OnTime => "في الموعد",
-        TrainTracking.Domain.Entities.TripStatus.Delayed => "متأخر",
-        TrainTracking.Domain.Entities.TripStatus.Scheduled => "مجدول",
+        TrainTracking.Domain.Enums.TripStatus.OnTime => "في الموعد",
+        TrainTracking.Domain.Enums.TripStatus.Delayed => "متأخر",
+        TrainTracking.Domain.Enums.TripStatus.Scheduled => "مجدول",
         _ => Model.Status.ToString()
     };
 }

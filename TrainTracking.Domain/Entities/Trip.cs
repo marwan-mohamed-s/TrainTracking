@@ -1,17 +1,7 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TrainTracking.Domain.Entities;
-
-public enum TripStatus
-{
-    Scheduled,
-    OnTime,
-    Delayed,
-    Cancelled,
-    Completed
-}
 
 public class Trip
 {
@@ -29,7 +19,7 @@ public class Trip
     public Station? ToStation { get; set; }
     public DateTimeOffset DepartureTime { get; set; }
     public DateTimeOffset ArrivalTime { get; set; }
-    public TripStatus Status { get; set; } = TripStatus.Scheduled;
+    public Domain.Enums.TripStatus Status { get; set; } = Domain.Enums.TripStatus.Scheduled;
     public int? DelayMinutes { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
     public string? PathPolyline { get; set; }

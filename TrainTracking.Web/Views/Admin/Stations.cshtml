@@ -34,6 +34,7 @@
                         <th class="py-3 px-4">اسم المحطة</th>
                         <th class="py-3 px-4 text-center">خط العرض (Lat)</th>
                         <th class="py-3 px-4 text-center">خط الطول (Lng)</th>
+                        <th class="py-3 px-4 text-center">الترتيب (Order)</th>
                         <th class="py-3 px-4 text-center">إجراءات</th>
                     </tr>
                 </thead>
@@ -44,6 +45,7 @@
                             <td class="px-4 py-3 fw-bold">@item.Name</td>
                             <td class="px-4 py-3 text-center text-muted">@item.Latitude</td>
                             <td class="px-4 py-3 text-center text-muted">@item.Longitude</td>
+                            <td class="px-4 py-3 text-center fw-bold text-success">@item.Order</td>
                             <td class="px-4 py-3 text-center">
                                 <a asp-action="EditStation" asp-route-id="@item.Id" class="btn btn-outline-primary btn-sm rounded-pill px-3 me-1">
                                     <i class="fas fa-edit"></i> تعديل

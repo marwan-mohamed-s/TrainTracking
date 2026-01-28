@@ -10,7 +10,7 @@ namespace TrainTracking.Application.Services
     {
         private readonly IStationRepository _stationRepository;
         private readonly ITrainRepository _trainRepository;
-        
+
 
         public TripService(IStationRepository stationRepository, ITrainRepository trainRepository)
         {
@@ -22,14 +22,15 @@ namespace TrainTracking.Application.Services
         {
             var fromStation = await _stationRepository.GetByIdAsync(fromStationId);
             var toStation = await _stationRepository.GetByIdAsync(toStationId);
-            var train = (await _trainRepository.GetAllAsync()).FirstOrDefault();
-            int TrainSpeedKmh = train!.speed;
+            var trains = await _trainRepository.GetAllAsync();
+            var train = trains.FirstOrDefault();
+            int TrainSpeedKmh = (train != null && train.speed > 0) ? train.speed : 300;
 
             if (fromStation == null || toStation == null)
-                return departureTime.AddHours(1); // Fallback
+                return departureTime.AddHours(1);
 
             double distanceKm = CalculateDistance(fromStation.Latitude, fromStation.Longitude, toStation.Latitude, toStation.Longitude);
-            
+
             // Time in hours = Distance / Speed
             double travelTimeHours = distanceKm / TrainSpeedKmh;
             double travelTimeMinutes = travelTimeHours * 60;
@@ -38,33 +39,29 @@ namespace TrainTracking.Application.Services
             int stopCount = await GetIntermediateStationCountAsync(fromStationId, toStationId);
             travelTimeMinutes += (stopCount * 10);
 
+            // Safety check for invalid numbers
+            if (double.IsNaN(travelTimeMinutes) || double.IsInfinity(travelTimeMinutes))
+            {
+                return departureTime.AddHours(1); // Default fallback
+            }
+
             return departureTime.AddMinutes(Math.Ceiling(travelTimeMinutes));
         }
 
         private async Task<int> GetIntermediateStationCountAsync(Guid fromId, Guid toId)
         {
-            // For a production app, we would have "Routes" with ordered stations.
-            // For this implementation, we'll define a logical "Main Line" sequence.
-            var mainLineIds = new List<Guid>
-            {
-                new Guid("33333333-3333-3333-3333-333333333333"), // الجهراء
-                new Guid("11111111-1111-1111-1111-111111111111"), // الكويت المركزية
-                new Guid("44444444-4444-4444-4444-444444444444"), // الفروانية
-                new Guid("22222222-2222-2222-2222-222222222222"), // حولي
-                new Guid("55555555-5555-5555-5555-555555551111"), // السالمية
-                new Guid("66666666-6666-6666-6666-666666666666"), // مبارك الكبير
-                new Guid("55555555-5555-5555-5555-555555552222"), // الأحمدي
-                new Guid("77777777-7777-7777-7777-777777777777")  // الفحيحيل
-            };
+            var fromStation = await _stationRepository.GetByIdAsync(fromId);
+            var toStation = await _stationRepository.GetByIdAsync(toId);
 
-            int fromIndex = mainLineIds.IndexOf(fromId);
-            int toIndex = mainLineIds.IndexOf(toId);
+            if (fromStation == null || toStation == null) return 0;
 
-            if (fromIndex == -1 || toIndex == -1) return 0;
+            var stations = await _stationRepository.GetAllAsync();
+            var minOrder = Math.Min(fromStation.Order, toStation.Order);
+            var maxOrder = Math.Max(fromStation.Order, toStation.Order);
 
-            // Number of stations strictly BETWEEN from and to
-            int diff = Math.Abs(fromIndex - toIndex);
-            return diff > 1 ? diff - 1 : 0;
+            // Count stations strictly between from and to based on their Order
+            int count = stations.Count(s => s.Order > minOrder && s.Order < maxOrder);
+            return count;
         }
 
         public double CalculateDistance(double lat1, double lon1, double lat2, double lon2)

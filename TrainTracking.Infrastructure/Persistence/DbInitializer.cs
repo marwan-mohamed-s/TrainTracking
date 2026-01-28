@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using TrainTracking.Domain.Entities;
+using TrainTracking.Domain.Enums;
 
 namespace TrainTracking.Infrastructure.Persistence;
 

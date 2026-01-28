@@ -29,12 +29,23 @@ namespace TrainTracking.Infrastructure.Repositories
                               && b.Status == BookingStatus.Confirmed);
         }
 
-        public async Task<bool> IsSeatTakenAsync(Guid tripId, int seatNumber)
+        public async Task<bool> IsSeatTakenAsync(Guid tripId, int seatNumber, Guid fromStationId, Guid toStationId)
         {
-            return await _context.Bookings.AnyAsync(b => 
-                b.TripId == tripId && 
-                b.SeatNumber == seatNumber &&
-                b.Status != BookingStatus.Cancelled);
+            var fromStation = await _context.Stations.FindAsync(fromStationId);
+            var toStation = await _context.Stations.FindAsync(toStationId);
+
+            if (fromStation == null || toStation == null) return true;
+
+            return await _context.Bookings
+                .Include(b => b.FromStation)
+                .Include(b => b.ToStation)
+                .AnyAsync(b =>
+                    b.TripId == tripId &&
+                    b.SeatNumber == seatNumber &&
+                    b.Status != BookingStatus.Cancelled &&
+                    // شرط التداخل: (بداية الحجز الحالي < نهاية الحجز المطلوب) و (نهاية الحجز الحالي > بداية الحجز المطلوب)
+                    b.FromStation.Order < toStation.Order &&
+                    b.ToStation.Order > fromStation.Order);
         }
 
         public async Task<Booking?> GetByIdAsync(Guid id)
@@ -70,16 +81,23 @@ namespace TrainTracking.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<List<int>> GetTakenSeatsAsync(Guid tripId)
+        public async Task<List<int>> GetTakenSeatsAsync(Guid tripId, Guid fromStationId, Guid toStationId)
         {
-            // نحدد وقت انتهاء صلاحية الحجز المعلق (10 دقائق مثلاً)
+            var fromStation = await _context.Stations.FindAsync(fromStationId);
+            var toStation = await _context.Stations.FindAsync(toStationId);
+
+            if (fromStation == null || toStation == null) return new List<int>();
+
             var expirationTime = DateTimeOffset.Now.AddMinutes(-1);
 
             return await _context.Bookings
+                .Include(b => b.FromStation)
+                .Include(b => b.ToStation)
                 .Where(b => b.TripId == tripId && (
-                    b.Status == BookingStatus.Confirmed || // المقاعد المؤكدة محجوزة دائماً
-                    (b.Status == BookingStatus.PendingPayment && b.BookingDate > expirationTime) // المقاعد التي تحت الدفع ولم تنتهِ مهلتها
+                    b.Status == BookingStatus.Confirmed ||
+                    (b.Status == BookingStatus.PendingPayment && b.BookingDate > expirationTime)
                 ))
+                .Where(b => b.FromStation.Order < toStation.Order && b.ToStation.Order > fromStation.Order)
                 .Select(b => b.SeatNumber)
                 .ToListAsync();
         }

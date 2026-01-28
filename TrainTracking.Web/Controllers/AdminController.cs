@@ -194,7 +194,6 @@ namespace TrainTracking.Web.Controllers
                 return Json(new { success = false, message = ex.Message });
             }
         }
-
         // أضف الـ CalculateDistance (انسخه من StationsController لو مش موجود هنا)
         private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
         {

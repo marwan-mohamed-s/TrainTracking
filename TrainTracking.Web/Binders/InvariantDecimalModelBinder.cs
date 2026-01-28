@@ -9,7 +9,7 @@ public class InvariantDecimalModelBinder : IModelBinder
     {
         if (bindingContext == null)
             throw new ArgumentNullException(nameof(bindingContext));
-
+        
         var valueProviderResult = bindingContext.ValueProvider.GetValue(bindingContext.ModelName);
         if (valueProviderResult == ValueProviderResult.None)
             return Task.CompletedTask;

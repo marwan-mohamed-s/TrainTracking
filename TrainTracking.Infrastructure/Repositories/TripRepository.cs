@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TrainTracking.Application.Interfaces;
 using TrainTracking.Domain.Entities;
+using TrainTracking.Domain.Enums;
 using TrainTracking.Infrastructure.Persistence;
 
 namespace TrainTracking.Infrastructure.Repositories;
@@ -28,19 +29,39 @@ public class TripRepository : ITripRepository
             .Include(t => t.ToStation)
             .AsQueryable();
 
-        if (fromStationId.HasValue)
+        if (fromStationId.HasValue && toStationId.HasValue)
         {
-            query = query.Where(t => t.FromStationId == fromStationId.Value);
-        }
+            var fromStation = await _context.Stations.FindAsync(fromStationId.Value);
+            var toStation = await _context.Stations.FindAsync(toStationId.Value);
 
-        if (toStationId.HasValue)
+            if (fromStation != null && toStation != null)
+            {
+                // البحث الذكي: الرحلة التي تبدأ قبل أو عند محطة الركوب وتنتهي بعد أو عند محطة النزول
+                query = query.Where(t =>
+                    t.FromStation!.Order <= fromStation.Order &&
+                    t.ToStation!.Order >= toStation.Order);
+            }
+        }
+        else if (fromStationId.HasValue)
         {
-            query = query.Where(t => t.ToStationId == toStationId.Value);
+            var fromStation = await _context.Stations.FindAsync(fromStationId.Value);
+            if (fromStation != null)
+            {
+                query = query.Where(t => t.FromStation!.Order <= fromStation.Order && t.ToStation!.Order > fromStation.Order);
+            }
+        }
+        else if (toStationId.HasValue)
+        {
+            var toStation = await _context.Stations.FindAsync(toStationId.Value);
+            if (toStation != null)
+            {
+                query = query.Where(t => t.ToStation!.Order >= toStation.Order && t.FromStation!.Order < toStation.Order);
+            }
         }
 
         var now = _dateTimeService.Now;
         var oneHourAgo = now.AddHours(-1);
-        
+
         // Fetch and filter in-memory as a fail-safe for SQLite DateTimeOffset string comparison inconsistencies
         var allTrips = await query.ToListAsync();
 
@@ -49,21 +70,20 @@ public class TripRepository : ITripRepository
             var targetDate = date.Value.Date;
             var start = new DateTimeOffset(targetDate, _dateTimeService.Now.Offset);
             var end = start.AddDays(1);
-            
-            return allTrips.Where(t => 
+
+            return allTrips.Where(t =>
                 (t.DepartureTime >= start && t.DepartureTime < end && t.DepartureTime >= now && t.Status != TripStatus.Completed) ||
                 (t.Status == TripStatus.Cancelled && t.CancelledAt >= oneHourAgo && t.CancelledAt >= start && t.CancelledAt < end)
             ).OrderBy(t => t.DepartureTime).ToList();
         }
         else
         {
-            return allTrips.Where(t => 
-                (t.DepartureTime >= now && t.Status != TripStatus.Completed) || 
+            return allTrips.Where(t =>
+                (t.DepartureTime >= now && t.Status != TripStatus.Completed) ||
                 (t.Status == TripStatus.Cancelled && t.CancelledAt >= oneHourAgo)
             ).OrderBy(t => t.DepartureTime).ToList();
         }
     }
-
     public async Task<Trip?> GetTripWithStationsAsync(Guid id)
     {
         return await _context.Trips

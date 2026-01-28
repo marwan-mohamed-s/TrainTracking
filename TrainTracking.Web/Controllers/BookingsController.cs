@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using TrainTracking.Application.Interfaces;
+using TrainTracking.Application.Services;
 using TrainTracking.Domain.Entities;
 using TrainTracking.Domain.Enums;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
+using TrainTracking.Infrastructure.Repositories;
 
 namespace TrainTracking.Web.Controllers
 {
@@ -16,10 +18,13 @@ namespace TrainTracking.Web.Controllers
         private readonly ISmsService _smsService;
         private readonly INotificationRepository _notificationRepository;
         private readonly IDateTimeService _dateTimeService;
+        private readonly IVirtualSegmentService _virtualSegmentService;
+        private readonly IStationRepository _stationRepository;
 
         public BookingsController(IBookingRepository bookingRepository, ITripRepository tripRepository, 
             Services.TicketGenerator ticketGenerator, IEmailService emailService, ISmsService smsService,
-            INotificationRepository notificationRepository, IDateTimeService dateTimeService)
+            INotificationRepository notificationRepository, IDateTimeService dateTimeService,
+            IVirtualSegmentService virtualSegmentService, IStationRepository stationRepository)
         {
             _bookingRepository = bookingRepository;
             _tripRepository = tripRepository;
@@ -28,6 +33,8 @@ namespace TrainTracking.Web.Controllers
             _smsService = smsService;
             _notificationRepository = notificationRepository;
             _dateTimeService = dateTimeService;
+            _virtualSegmentService = virtualSegmentService;
+            _stationRepository = stationRepository;
         }
         private decimal CalculateSeatPrice(int seatNumber, decimal basePrice)
         {
@@ -43,7 +50,7 @@ namespace TrainTracking.Web.Controllers
             return basePrice;
         }
         [HttpGet]
-        public async Task<IActionResult> Create(Guid? id, Guid? tripId)
+        public async Task<IActionResult> Create(Guid? id, Guid? tripId, Guid? fromStationId, Guid? toStationId)
         {
             var targetId = id ?? tripId;
             if (targetId == null || targetId == Guid.Empty)
@@ -52,20 +59,46 @@ namespace TrainTracking.Web.Controllers
             }
 
             var trip = await _tripRepository.GetTripWithStationsAsync(targetId.Value);
-            if (trip == null)
+            if (trip == null) return NotFound("الرحلة غير موجودة.");
+
+            // Default to trip's own stations if not provided
+            var effectiveFromId = (fromStationId == null || fromStationId == Guid.Empty) ? trip.FromStationId : fromStationId.Value;
+            var effectiveToId = (toStationId == null || toStationId == Guid.Empty) ? trip.ToStationId : toStationId.Value;
+
+            if (effectiveFromId == effectiveToId)
             {
-                return NotFound("لم يتم العثور على الرحلة المطلوبة.");
+                TempData["ErrorMessage"] = "لا يمكن حجز رحلة تبدأ وتنتهي في نفس المحطة.";
+                return RedirectToAction("Index", "Trips");
             }
 
-            //for train seats
+            var fromStation = await _stationRepository.GetByIdAsync(effectiveFromId);
+            var toStation = await _stationRepository.GetByIdAsync(effectiveToId);
+
+            if (fromStation == null || toStation == null)
+            {
+                return NotFound("لم يتم العثور على المحطات المطلوبة.");
+            }
+
+            // حساب الوقت المحلي للمقطع المختطر
+            DateTimeOffset segmentDepartureTime = await _virtualSegmentService.CalculateDepartureTimeAsync(trip, fromStation);
+            DateTimeOffset segmentArrivalTime = await _virtualSegmentService.CalculateArrivalTimeAsync(trip, toStation);
+
+            // حساب السعر والمقاعد المحجوزة للمقطع
+            decimal segmentPrice = await _virtualSegmentService.CalculatePriceAsync(trip, fromStation, toStation);
             ViewBag.totalSeats = trip.Train?.TotalSeats ?? 0;
-            ViewBag.TakenSeats = await _bookingRepository.GetTakenSeatsAsync(targetId.Value);
+            ViewBag.TakenSeats = await _bookingRepository.GetTakenSeatsAsync(targetId.Value, effectiveFromId, effectiveToId);
+            ViewBag.FromStation = fromStation;
+            ViewBag.ToStation = toStation;
+            ViewBag.SegmentDepartureTime = segmentDepartureTime;
+            ViewBag.SegmentArrivalTime = segmentArrivalTime;
 
             var booking = new Booking
             {
                 TripId = targetId.Value,
                 Trip = trip,
-                Price = trip.Price
+                FromStationId = effectiveFromId,
+                ToStationId = effectiveToId,
+                Price = segmentPrice
             };
 
             return View(booking);
@@ -78,25 +111,30 @@ namespace TrainTracking.Web.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Booking booking, string selectedSeats)
         {
-             ModelState.Remove("Trip");
-             ModelState.Remove("UserId");
+            ModelState.Remove("Trip");
+            ModelState.Remove("UserId");
+            ModelState.Remove("FromStation");
+            ModelState.Remove("ToStation");
+
             var trip = await _tripRepository.GetTripWithStationsAsync(booking.TripId);
+            var fromStation = await _stationRepository.GetByIdAsync(booking.FromStationId);
+            var toStation = await _stationRepository.GetByIdAsync(booking.ToStationId);
 
             if (ModelState.IsValid)
             {
-                if (await _bookingRepository.IsSeatTakenAsync(booking.TripId, booking.SeatNumber))
-                { 
-                    ModelState.AddModelError("SeatNumber", "هذا المقعد محجوز بالفعل.");
+                if (await _bookingRepository.IsSeatTakenAsync(booking.TripId, booking.SeatNumber, booking.FromStationId, booking.ToStationId))
+                {
+                    ModelState.AddModelError("SeatNumber", "هذا المقعد محجوز بالفعل في المقطع المختار.");
                 }
                 else if (string.IsNullOrEmpty(selectedSeats))
                 {
                     ModelState.AddModelError("", "يجب اختيار مقعد واحد على الأقل.");
-                    return View(booking);
                 }
                 else
                 {
                     var seatNumbers = selectedSeats.Split(',').Select(int.Parse).ToList();
                     var createdBookingIds = new List<Guid>();
+                    decimal segmentBasePrice = await _virtualSegmentService.CalculatePriceAsync(trip!, fromStation!, toStation!);
 
                     foreach (var seat in seatNumbers)
                     {
@@ -104,21 +142,21 @@ namespace TrainTracking.Web.Controllers
                         {
                             Id = Guid.NewGuid(),
                             TripId = booking.TripId,
+                            FromStationId = booking.FromStationId,
+                            ToStationId = booking.ToStationId,
                             PassengerName = booking.PassengerName,
                             PassengerPhone = booking.PassengerPhone,
-                            SeatNumber = seat, // هنا نضع رقم المقعد من اللوب
-                            Price = CalculateSeatPrice(seat, trip.Price), // سعر المقعد الواحد
+                            SeatNumber = seat,
+                            Price = CalculateSeatPrice(seat, segmentBasePrice),
                             UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Guest",
                             Status = BookingStatus.PendingPayment,
                             BookingDate = DateTimeOffset.Now
                         };
 
-                        // حفظ كل مقعد كسجل منفصل في قاعدة البيانات
                         await _bookingRepository.CreateAsync(newBooking);
                         createdBookingIds.Add(newBooking.Id);
                     }
 
-                    // Redirect to Payment
                     string idsString = string.Join(",", createdBookingIds);
                     return RedirectToAction("Payment", new { ids = idsString });
                 }
@@ -128,10 +166,11 @@ namespace TrainTracking.Web.Controllers
             {
                 booking.Trip = trip;
             }
-            ViewBag.TakenSeats = await _bookingRepository.GetTakenSeatsAsync(booking.TripId);
+            ViewBag.TakenSeats = await _bookingRepository.GetTakenSeatsAsync(booking.TripId, booking.FromStationId, booking.ToStationId);
+            ViewBag.FromStation = fromStation;
+            ViewBag.ToStation = toStation;
             return View(booking);
         }
-
 
         /// //////////////////////////////////////////////////////////////////<summary>
         [HttpGet]

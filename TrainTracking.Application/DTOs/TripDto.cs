@@ -15,7 +15,7 @@ public class TripDto
     public double ToStationLongitude { get; set; }
     public DateTimeOffset DepartureTime { get; set; }
     public DateTimeOffset ArrivalTime { get; set; }
-    public TrainTracking.Domain.Entities.TripStatus Status { get; set; }
+    public TrainTracking.Domain.Enums.TripStatus Status { get; set; }
     public decimal Price { get; set; }
     public int DelayMinutes { get; set; }
 }
