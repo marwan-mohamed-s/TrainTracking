@@ -18,34 +18,46 @@ namespace TrainTracking.Application.Services
 
         private async Task<double> GetTotalPathDistanceAsync(Trip trip)
         {
-            var stations = (await _stationRepository.GetAllAsync())
-                .Where(s => s.Order >= trip.FromStation!.Order && s.Order <= trip.ToStation!.Order)
-                .OrderBy(s => s.Order)
-                .ToList();
+            var allStations = await _stationRepository.GetAllAsync();
+            bool isForward = trip.FromStation!.Order < trip.ToStation!.Order;
+
+            var stations = allStations
+                .Where(s => s.Order >= Math.Min(trip.FromStation.Order, trip.ToStation.Order) &&
+                            s.Order <= Math.Max(trip.FromStation.Order, trip.ToStation.Order));
+
+            var orderedStations = isForward
+                ? stations.OrderBy(s => s.Order).ToList()
+                : stations.OrderByDescending(s => s.Order).ToList();
 
             double totalPathDistance = 0;
-            for (int i = 0; i < stations.Count - 1; i++)
+            for (int i = 0; i < orderedStations.Count - 1; i++)
             {
                 totalPathDistance += CalculateDistance(
-                    stations[i].Latitude, stations[i].Longitude,
-                    stations[i + 1].Latitude, stations[i + 1].Longitude);
+                    orderedStations[i].Latitude, orderedStations[i].Longitude,
+                    orderedStations[i + 1].Latitude, orderedStations[i + 1].Longitude);
             }
             return totalPathDistance;
         }
 
         private async Task<double> GetSegmentPathDistanceAsync(Station from, Station to)
         {
-            var stations = (await _stationRepository.GetAllAsync())
-                .Where(s => s.Order >= Math.Min(from.Order, to.Order) && s.Order <= Math.Max(from.Order, to.Order))
-                .OrderBy(s => s.Order)
-                .ToList();
+            var allStations = await _stationRepository.GetAllAsync();
+            bool isForward = from.Order < to.Order;
+
+            var stations = allStations
+                .Where(s => s.Order >= Math.Min(from.Order, to.Order) &&
+                            s.Order <= Math.Max(from.Order, to.Order));
+
+            var orderedStations = isForward
+                ? stations.OrderBy(s => s.Order).ToList()
+                : stations.OrderByDescending(s => s.Order).ToList();
 
             double segmentDistance = 0;
-            for (int i = 0; i < stations.Count - 1; i++)
+            for (int i = 0; i < orderedStations.Count - 1; i++)
             {
                 segmentDistance += CalculateDistance(
-                    stations[i].Latitude, stations[i].Longitude,
-                    stations[i + 1].Latitude, stations[i + 1].Longitude);
+                    orderedStations[i].Latitude, orderedStations[i].Longitude,
+                    orderedStations[i + 1].Latitude, orderedStations[i + 1].Longitude);
             }
             return segmentDistance;
         }

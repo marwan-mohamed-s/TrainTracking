@@ -1,8 +1,8 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using TrainTracking.Application.Interfaces;
 using TrainTracking.Domain.Entities;
 using TrainTracking.Domain.Enums;
@@ -36,10 +36,23 @@ public class TripRepository : ITripRepository
 
             if (fromStation != null && toStation != null)
             {
-                // البحث الذكي: الرحلة التي تبدأ قبل أو عند محطة الركوب وتنتهي بعد أو عند محطة النزول
-                query = query.Where(t =>
-                    t.FromStation!.Order <= fromStation.Order &&
-                    t.ToStation!.Order >= toStation.Order);
+                // البحث الذكي مع مراعاة الاتجاه:
+                // 1. إذا كان المستخدم يطلب رحلة للأمام (محطة القيام أصغر من الوصول)
+                if (fromStation.Order < toStation.Order)
+                {
+                    query = query.Where(t =>
+                        t.FromStation!.Order <= fromStation.Order &&
+                        t.ToStation!.Order >= toStation.Order &&
+                        t.FromStation.Order < t.ToStation.Order); // الرحلة أصلاً للأمام
+                }
+                // 2. إذا كان المستخدم يطلب رحلة للخلف
+                else if (fromStation.Order > toStation.Order)
+                {
+                    query = query.Where(t =>
+                        t.FromStation!.Order >= fromStation.Order &&
+                        t.ToStation!.Order <= toStation.Order &&
+                        t.FromStation.Order > t.ToStation.Order); // الرحلة أصلاً للخلف
+                }
             }
         }
         else if (fromStationId.HasValue)
@@ -47,7 +60,11 @@ public class TripRepository : ITripRepository
             var fromStation = await _context.Stations.FindAsync(fromStationId.Value);
             if (fromStation != null)
             {
-                query = query.Where(t => t.FromStation!.Order <= fromStation.Order && t.ToStation!.Order > fromStation.Order);
+                // الرحلات التي تمر بهذه المحطة ولديها محطة تالية في أي اتجاه
+                query = query.Where(t =>
+                    (t.FromStation!.Order <= fromStation.Order && t.ToStation!.Order > fromStation.Order) || // للأمام
+                    (t.FromStation!.Order >= fromStation.Order && t.ToStation!.Order < fromStation.Order)    // للخلف
+                );
             }
         }
         else if (toStationId.HasValue)
@@ -55,7 +72,11 @@ public class TripRepository : ITripRepository
             var toStation = await _context.Stations.FindAsync(toStationId.Value);
             if (toStation != null)
             {
-                query = query.Where(t => t.ToStation!.Order >= toStation.Order && t.FromStation!.Order < toStation.Order);
+                // الرحلات التي تمر بهذه المحطة ولديها محطة سابقة في أي اتجاه
+                query = query.Where(t =>
+                    (t.ToStation!.Order >= toStation.Order && t.FromStation!.Order < toStation.Order) || // للأمام
+                    (t.ToStation!.Order <= toStation.Order && t.FromStation!.Order > toStation.Order)    // للخلف
+                );
             }
         }
 
@@ -84,6 +105,7 @@ public class TripRepository : ITripRepository
             ).OrderBy(t => t.DepartureTime).ToList();
         }
     }
+
     public async Task<Trip?> GetTripWithStationsAsync(Guid id)
     {
         return await _context.Trips
@@ -155,14 +177,14 @@ public class TripRepository : ITripRepository
             var tripBookings = await _context.Bookings
                 .Where(b => b.TripId == id)
                 .ToListAsync();
-            
+
             if (tripBookings.Any())
             {
                 var bookingIds = tripBookings.Select(b => b.Id).ToList();
                 var bookingNotifications = await _context.Notifications
                     .Where(n => n.BookingId.HasValue && bookingIds.Contains(n.BookingId.Value))
                     .ToListAsync();
-                
+
                 if (bookingNotifications.Any())
                 {
                     _context.Notifications.RemoveRange(bookingNotifications);
